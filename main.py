@@ -8,36 +8,31 @@ defined_fns = {'+': '+'}
 
 
 def eval_expr(text):
-    without_parens = text[1:-1]
+    def recursive_eval(acc, char):
+        items, in_parens, temp = acc
 
-    items = []
-    temp = ''
-    in_parens = False
-
-    for char in without_parens:
         if not in_parens:
             if char == ' ':
-                continue
+                return acc
             if char == '(':
-                temp += char
-                in_parens = True
-            else:
-                items.append(lisp_eval(char))
+                return items, True, temp + char
+            return items + [lisp_eval(char)], in_parens, temp
         else:
-            temp += char
+            new_temp = temp + char
             if char == ')':
-                in_parens = False
-                items.append(lisp_eval(temp))
-                temp = ''
+                return items + [lisp_eval(new_temp)], False, ''
+            return items, in_parens, new_temp
 
-    return lisp_call(*items)
+    without_parens = text[1:-1]
+    items, _, _ = reduce(recursive_eval, without_parens, ([], False, ''))
+    fn, *args = items
+    return lisp_call(fn, *args)
 
 
 lisp_eval = some_fn(
     partial(dict.get, defined_fns),
     lambda t: silent(eval)(t),
     eval_expr)
-
 
 
 def lisp_call(fn, *args):
