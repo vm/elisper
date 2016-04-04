@@ -1,17 +1,23 @@
-from main import lisp_eval, lisp_call, eval_expr
+from main import parse_recursive, parse_string, parse_integer, parse_var
 
 
-def test_lisp_eval():
-    assert lisp_eval('(+ 1 2)') == 3
+def test_parse_recursive():
+    assert parse_recursive('(+ 1 2)') == ['+', 1, 2]
+    assert parse_recursive('(+ 1 (+ (+ 2 1) 3))') == ['+', 1, ['+', ['+', 2, 1], 3]]
 
 
-def test_lisp_eval_recursive():
-    assert lisp_eval('(+ 1 (+ 2 3))') == 6
+def test_parse_string():
+    assert parse_string('"hello"') == 'hello'
+    assert parse_string('"9"') == '9'
+    assert parse_string('9') is None
 
 
-def test_lisp_call():
-    assert lisp_call('+', 1, 2) == 3
+def test_parse_integer():
+    assert parse_integer('100') == 100
+    assert parse_integer('9') == 9
+    assert parse_integer('9.') is None
 
 
-def test_eval_expr():
-    assert eval_expr('(+ 1 (+ 2 3))') == 6
+def test_parse_var():
+    assert parse_var('+') == '+'
+    assert parse_var('#') is None

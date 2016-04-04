@@ -1,42 +1,54 @@
-from functools import reduce
-from operator import add
-
-from funcy import compose, partial, silent, some_fn
+from funcy import partial, silent, some_fn
 
 
-defined_fns = {'+': '+'}
+"""
+A Token is one of:
+    - String
+    - Integer
+    - ['+' Token Token]
+"""
 
 
-def eval_expr(text):
-    def recursive_eval(acc, char):
-        items, in_parens, temp = acc
+def parse_recursive(sexp):
+    first, last = sexp[0], sexp[-1]
 
-        if not in_parens:
-            if char == ' ':
-                return acc
-            if char == '(':
-                return items, True, temp + char
-            return items + [lisp_eval(char)], in_parens, temp
+    if first != '(' or last != ')' or len(sexp) < 2:
+        raise TypeError('not a valid function call')
+
+    middle = sexp[1:-1]
+
+    sexps = []
+    depth = 0
+    temp = ''
+    for char in middle:
+        if depth == 0:
+            if char != ' ':
+                temp += char
+                if char == '(':
+                    depth += 1
+            else:
+                sexps.append(temp)
+                temp = ''
         else:
-            new_temp = temp + char
+            temp += char
             if char == ')':
-                return items + [lisp_eval(new_temp)], False, ''
-            return items, in_parens, new_temp
+                depth -= 1
+    if temp:
+        sexps.append(temp)
 
-    without_parens = text[1:-1]
-    items, _, _ = reduce(recursive_eval, without_parens, ([], False, ''))
-    fn, *args = items
-    return lisp_call(fn, *args)
+    return list(map(parse_sexp, sexps))
 
 
-lisp_eval = some_fn(
-    partial(dict.get, defined_fns),
-    lambda t: silent(eval)(t),
-    eval_expr)
+def parse_string(sexp):
+    quote = '"'
+    print(quote)
+    if sexp[0] == quote and sexp[-1] == quote:
+        return sexp[1:-1]
+    return None
 
 
-def lisp_call(fn, *args):
-    if fn == '+':
-        return reduce(add, map(int, args), 0)
-    else:
-        raise NotImplementedError
+parse_var = partial(dict.get, {'+': '+'})
+parse_integer = silent(int)
+
+
+parse_sexp = some_fn(parse_var, parse_string, parse_integer, parse_recursive)
