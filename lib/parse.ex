@@ -8,16 +8,23 @@ defmodule Parse do
 
   ## Examples
 
+    iex> Parse.parse(~s("hello"))
+    {:string, "hello"}
+    iex> Parse.parse("42")
+    {:integer, 42}
+
     iex> Parse.parse("(+ 1 1)")
-    [:add, 1, 1]
-    iex> Parse.parse("(+ \"what\" (+ \"is\" \"up\"))")
-    [:add "what" [:add "is" "up"]]
+    {:program, {:variable, :add}, [integer: 1, integer: 1]}
+    iex> Parse.parse("(+ 1 (+ 2 3))")
+    {:program, {:variable, :add},
+     [{:integer, 1}, {:program, {:variable, :add}, [integer: 2, integer: 3]}]}
+
     iex> Parse.parse("(+ 1 1))")
     :error
     iex> Parse.parse("+ 1 1")
     :error
 
-  Returns `:error` if unsucessful.
+  Returns a Program, or `:error` if unsucessful.
   """
   def parse(text) do
     parse_variable(text) || parse_string(text) || parse_integer(text) || parse_list(text) || :error
@@ -25,7 +32,7 @@ defmodule Parse do
 
   defp parse_variable(text) do
     case text do
-      "+" -> :add
+      "+" -> {:variable, :add}
       _ -> nil
     end
   end
@@ -34,14 +41,14 @@ defmodule Parse do
     quote_char = ~s(")
     cond do
       String.first(text) == quote_char and String.last(text) == quote_char ->
-        String.slice(text, 1..-2)
+        {:string, String.slice(text, 1..-2)}
       true -> nil
     end
   end
 
   defp parse_integer(text) do
     case Integer.parse text do
-      {int, ""} -> int
+      {integer, ""} -> {:integer, integer}
       _ -> nil
     end
   end
@@ -59,7 +66,7 @@ defmodule Parse do
     end
 
     case Enum.reduce char_stream, {"", 0, []}, handle_char do
-      {"", 0, sexps} -> sexps
+      {"", 0, [function | arguments]} -> {:program, function, arguments}
       _ -> nil
     end
   end
