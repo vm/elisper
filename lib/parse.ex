@@ -1,54 +1,66 @@
 defmodule Parse do
+  @moduledoc """
+  This is the parsing module for Elisper
+  """
+
+  @doc """
+  Attempts to parse `text` into the Elisper's internal representation.
+
+  ## Examples
+
+    iex> Parse.parse("(+ 1 1)")
+    [:add, 1, 1]
+    iex> Parse.parse("(+ \"what\" (+ \"is\" \"up\"))")
+    [:add "what" [:add "is" "up"]]
+    iex> Parse.parse("(+ 1 1))")
+    :error
+    iex> Parse.parse("+ 1 1")
+    :error
+
+  Returns `:error` if unsucessful.
+  """
   def parse(text) do
-    case as_variable text do
-      :error -> case as_string text do
-        :error -> case as_integer text do
-          :error -> as_list text
-          integer -> integer
-        end
-        string -> string
-      end
-      var -> var
-    end
+    parse_variable(text) || parse_string(text) || parse_integer(text) || parse_list(text) || :error
   end
 
-  defp as_variable(text) do
+  defp parse_variable(text) do
     case text do
       "+" -> :add
-      _ -> :error
+      _ -> nil
     end
   end
 
-  defp as_string(text) do
+  defp parse_string(text) do
     quote_char = ~s(")
     cond do
       String.first(text) == quote_char and String.last(text) == quote_char ->
         String.slice(text, 1..-2)
-      true -> :error
+      true -> nil
     end
   end
 
-  defp as_integer(text) do
+  defp parse_integer(text) do
     case Integer.parse text do
       {int, ""} -> int
-      _ -> :error
+      _ -> nil
     end
   end
 
-  defp as_list(text) do
-    Enum.reduce Stream.unfold(text, &String.next_codepoint/1), {"", 0, []}, fn
-      "(", {"" = empty, 0 = depth, []} ->
-        {empty, depth + 1, []}
-      " ", {temp, 1 = depth, sexps} ->
-        {"", depth, sexps ++ [parse temp]}
-      "(" = opening, {temp, 1 = depth, sexps} ->
-        {temp <> opening, depth + 1, sexps}
-      ")", {temp, 1, sexps} ->
-        sexps ++ [parse temp]
-      ")" = closing, {temp, depth, sexps} ->
-        {temp <> closing, depth - 1, sexps}
-      char, {temp, depth, sexps} ->
-        {temp <> char, depth, sexps}
+  defp parse_list(text) do
+    char_stream = Stream.unfold(text, &String.next_codepoint/1)
+
+    handle_char = fn
+      "(", {"" = empty, 0, []} -> {empty, 1, []}
+      "(" = opening, {temp, 1, sexps} -> {temp <> opening, 2, sexps}
+      ")", {temp, 1, sexps} -> {"", 0, sexps ++ [parse temp]}
+      " ", {temp, 1, sexps} -> {"", 1, sexps ++ [parse temp]}
+      ")" = closing, {temp, depth, sexps} -> {temp <> closing, depth - 1, sexps}
+      char, {temp, depth, sexps} -> {temp <> char, depth, sexps}
+    end
+
+    case Enum.reduce char_stream, {"", 0, []}, handle_char do
+      {"", 0, sexps} -> sexps
+      _ -> nil
     end
   end
 end
